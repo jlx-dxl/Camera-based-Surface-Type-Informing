@@ -161,6 +161,9 @@ cython_debug/
 
 # imgs
 *.png
+!illstrations/
+!illustrations/0623-test-result.png
+!illustrations/ClassificationArchitecture.png
 
 # wandb
 wandb/
