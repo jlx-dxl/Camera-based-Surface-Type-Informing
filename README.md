@@ -25,11 +25,11 @@ This part gives a classification result of the surface by analyzing the texture 
 To train the model, run (set up the WANDB_API_KEY in util.py if using wandb):
 
 ```
-$ python3 train.py --use_wandb --experiment_name="your-experiment-name" --batch_size=40 --lr=0.001 --lr_decay=0.1 --max_epoch=40 --num_workers=12 --drop_out=0.1
+python3 train.py --use_wandb --experiment_name="your-experiment-name" --batch_size=40 --lr=0.001 --lr_decay=0.1 --max_epoch=40 --num_workers=12 --drop_out=0.1
 ```
 To evaluate on test, run:
 ```
-$ python3 evaluate.py
+python3 evaluate.py
 ```
 
 ### 1.4 Current Performance
