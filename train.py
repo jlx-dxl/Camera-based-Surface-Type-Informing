@@ -11,7 +11,7 @@ import argparse
 import wandb
 
 from data.dataset import ImageDataset
-from model import ResNet, Classifer
+from model import ResNet18, Classifer18
 from util import *
 
 # 定义设备，优先使用 GPU
@@ -26,7 +26,7 @@ def get_args():
     parser.add_argument('--dropout_p', type=float, default=0.1, help="The dropout probability to use")   
     parser.add_argument('--batch_size', type=int, default=40, help="batch_size") 
     parser.add_argument('--max_epoch', type=int, default=40, help="max_epoch") 
-    parser.add_argument('--lr', type=float, default=0.1, help="learning rate")
+    parser.add_argument('--lr', type=float, default=0.001, help="learning rate")
     parser.add_argument('--lr_decay', type=float, default=0.1, help="learning rate decay rate") 
     parser.add_argument('--experiment_name', type=str, default='testing', help='The name of the experiment to run')
     parser.add_argument('--use_wandb', action='store_true', default=False, help="If set, use wandb to keep track of experiments")
@@ -38,9 +38,9 @@ def get_args():
 def train_one_epoch(args, model, optimizer, criterion, train_dataloader):
     
     model.train()
-    # 加载预训练的 ResNet 模型和 ChannelAdjuster 模型
-    resnet = ResNet(freeze_layers=True).to(device)
-    resnet.eval()
+    # 加载预训练的 ResNet18 模型
+    resnet18 = ResNet18(freeze_layers=True).to(device)
+    resnet18.eval()
     
     total_loss = 0
     total_acc = 0
@@ -53,13 +53,13 @@ def train_one_epoch(args, model, optimizer, criterion, train_dataloader):
         class_gt = class_gt.to(device)
         
         # renet提取特征
-        features_res = resnet(inputs_res).to(device)
+        features_res = resnet18(inputs_res).to(device)
         
         # glcm提取计算灰度图像的纹理特征
         gray_imgs = tensor_to_grayscale_list(inputs_glcm)
         batch_result = batch_glcm(gray_imgs).to(device)
         # 对灰度图像的纹理特征进行特征提取
-        features_glcm = resnet(batch_result).to(device)
+        features_glcm = resnet18(batch_result).to(device)
         
         input = torch.cat((features_res, features_glcm), dim=1)
         
@@ -87,8 +87,8 @@ def train_one_epoch(args, model, optimizer, criterion, train_dataloader):
 def evaluate_one_epoch(model, criterion, dev_dataloader):
         
     model.eval()
-    resnet = ResNet(freeze_layers=True).to(device)
-    resnet.eval()
+    resnet18 = ResNet18(freeze_layers=True).to(device)
+    resnet18.eval()
     
     total_loss = 0
     total_acc = 0
@@ -100,8 +100,12 @@ def evaluate_one_epoch(model, criterion, dev_dataloader):
             labels = labels.to(device)
             class_gt = class_gt.to(device)
             
-            features_res = resnet(inputs_res).to(device)
-            features_glcm = resnet(inputs_glcm).to(device)
+            features_res = resnet18(inputs_res).to(device)
+
+            gray_imgs = tensor_to_grayscale_list(inputs_glcm)
+            batch_result = batch_glcm(gray_imgs).to(device)
+            features_glcm = resnet18(batch_result).to(device)
+            
             input = torch.cat((features_res, features_glcm), dim=1)
             outputs = model(input)
             outputs = outputs.squeeze(1)
@@ -142,7 +146,7 @@ def main():
     train_dataloader = DataLoader(ImageDataset(set_type='train'), batch_size=batch_size, shuffle=True, num_workers=num_workers)
     dev_dataloader = DataLoader(ImageDataset(set_type='dev'), batch_size=batch_size, shuffle=True, num_workers=num_workers)
     
-    model = Classifer(dropout_p=dropout_p).to(device)
+    model = Classifer18(dropout_p=dropout_p).to(device)
     
     print(f"Model is training on {next(model.parameters()).device} !!!")
     

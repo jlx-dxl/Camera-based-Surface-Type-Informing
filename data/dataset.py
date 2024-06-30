@@ -95,7 +95,7 @@ class ImageDataset(Dataset):
                     transforms.ToTensor(),
                 ])
                 self.transform_2 = transforms.Compose([
-                    transforms.Resize((640, 640)),  # 
+                    transforms.Resize((224, 224)),  # ResNet的最佳输入大小
                     transforms.ToTensor(),
                 ])
             else:
