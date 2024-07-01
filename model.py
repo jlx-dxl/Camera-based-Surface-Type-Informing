@@ -6,6 +6,7 @@ import torch.nn.functional as F
 import torch.nn.init as init
 import torchvision.models as models
 from torchvision.models.resnet import ResNet50_Weights, ResNet18_Weights
+# import torch_tensorrt as trt
 
 class ResNet50(nn.Module):
     def __init__(self, freeze_layers=True):
@@ -129,7 +130,29 @@ class Classifer18(nn.Module):
 if __name__ == "__main__":
     
     # 实例化模型
-    model = ResNet18(freeze_layers=True)
+    model = ResNet18(freeze_layers=True).cuda()
+    model.eval()
+    
+    # 使用TorchScript加速模型
+    # 使用示例输入转换模型
+    example_input = torch.randn(1, 3, 224, 224).cuda()
+    traced_model = torch.jit.trace(model, example_input)
+    
+    # 保存转换后的模型
+    traced_model.save("model/resnet18_traced.pt")
+    
+    print("TorchScript加速模型已保存")
+    
+    # # 使用TensorRT加速模型
+    # # 将模型转换为 TorchScript
+    # example_input = torch.randn(1, 3, 224, 224).cuda()
+    # scripted_model = torch.jit.trace(model, example_input).eval().cuda()
 
-    # 打印模型结构
-    print(model)
+    # # 转换为 TensorRT 引擎
+    # trt_model = trt.compile(scripted_model, inputs=[trt.Input(example_input.shape)], enabled_precisions={torch.float, torch.half})
+
+    # # 保存 TensorRT 引擎
+    # with open("resnet18_trt.engine", "wb") as f:
+    #     f.write(trt_model.engine.serialize())
+
+    # print("TensorRT 引擎已保存")

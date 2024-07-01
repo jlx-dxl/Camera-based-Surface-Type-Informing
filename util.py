@@ -4,9 +4,10 @@
 import os
 import wandb    
 import torch
+import time
 import numpy as np
 from torch.utils.data import DataLoader
-from data.dataset import ImageDataset
+# from dataset import ImageDataset
 from tqdm import tqdm
 import cv2
 
@@ -156,7 +157,7 @@ def fast_glcm_dissimilarity(img, vmin=0, vmax=255, levels=8, ks=5, distance=1.0,
 
 def fast_glcm_homogeneity(img, vmin=0, vmax=255, levels=8, ks=5, distance=1.0, angle=0.0):
     '''
-    calc glcm homogeneity
+    calc glcm homogeneitydistance
     '''
     h,w = img.shape
     glcm = fast_glcm(img, vmin, vmax, levels, ks, distance, angle)
@@ -212,36 +213,33 @@ def display_img(img, name = '?'):
     cv2.destroyAllWindows()  # 关闭显示的窗口
     
 
-def tensor_to_grayscale_list(images_tensor):
+def tensor_to_grayscale(img_tensor):
     to_pil = ToPILImage()
     to_tensor = ToTensor()
-    grayscale_images = []
-    for img_tensor in images_tensor:
-        pil_img = to_pil(img_tensor)
-        pil_gray = pil_img.convert("L")
-        gray_tensor = to_tensor(pil_gray)
-        gray_np = gray_tensor.squeeze(0).numpy()
-        grayscale_images.append(gray_np)
-    return grayscale_images
+    pil_img = to_pil(img_tensor)
+    pil_gray = pil_img.convert("L")
+    gray_tensor = to_tensor(pil_gray)
+    gray_np = gray_tensor.squeeze(0).numpy()
+    return gray_np
 
 def integrate_glcm(img):
     result = []
     result.append(fast_glcm_contrast(img, 0.0, 1.0, 8, 5))   # 对比度
-    # result.append(fast_glcm_dissimilarity(img, 0.0, 1.0, 8, 5))
     result.append(fast_glcm_homogeneity(img, 0.0, 1.0, 8, 5))   # 同质性
-    # glcm_ASM, _ = fast_glcm_ASM(img, 0.0, 1.0, 8, 5)
-    # result.append(glcm_ASM)
     result.append(fast_glcm_entropy(img, 0.0, 1.0, 8, 5))   # 熵
     return result
 
-def batch_glcm(imgs):
-    batch_results = [integrate_glcm(img) for img in imgs]
+
+def batch_glcm(img):
+    
+    batch_results = integrate_glcm(img)
+        
     # 将列表中的numpy数组转换为张量，并堆叠形成一个新的张量
     # 首先堆叠每个特征的所有图像
     batch_results = [torch.tensor(np.stack(feature)) for feature in zip(*batch_results)]
-    # 再交换轴以正确地排列维度
-    batch_results = torch.stack(batch_results, dim=0)
-    batch_results = batch_results.permute(1, 0, 2, 3)  # 从 (5, 20, W, H) 调整到 (20, 5, W, H)
+    batch_results = torch.stack(batch_results, dim=0).permute(1, 0, 2)
+    # print(batch_results.shape)
+    
     return batch_results
 
 def visualize_all_glcm(imgs):
@@ -265,6 +263,12 @@ def visualize_all_glcm(imgs):
         glcm_entropy = fast_glcm_entropy(img, 0.0, 1.0, 8, 5)
         display_img(glcm_entropy, name='Entropy')      
         
+        
+def record_time_once(last):
+    now = time.time()
+    diff = now - last
+    # print(f"Time: {diff:.4f}")
+    return now
 
 
 if __name__ == "__main__":
@@ -274,6 +278,6 @@ if __name__ == "__main__":
     for _, images, gt_values in tqdm(dataloader):
         gray_imgs = tensor_to_grayscale_list(images)
         # batch_result = batch_glcm(gray_imgs)
-        # print(batch_result.shape)  # 应该输出 (20, 5, W, H)
+        # print(batch_result.shape)  # 应该输出 (20, 3, W, H)
         visualize_all_glcm(gray_imgs)
             

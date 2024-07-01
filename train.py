@@ -10,7 +10,7 @@ from tqdm import tqdm
 import argparse
 import wandb
 
-from data.dataset import ImageDataset
+from dataset import ImageDataset
 from model import ResNet18, Classifer18
 from util import *
 
@@ -54,12 +54,7 @@ def train_one_epoch(args, model, optimizer, criterion, train_dataloader):
         
         # renet提取特征
         features_res = resnet18(inputs_res).to(device)
-        
-        # glcm提取计算灰度图像的纹理特征
-        gray_imgs = tensor_to_grayscale_list(inputs_glcm)
-        batch_result = batch_glcm(gray_imgs).to(device)
-        # 对灰度图像的纹理特征进行特征提取
-        features_glcm = resnet18(batch_result).to(device)
+        features_glcm = resnet18(inputs_glcm).to(device)
         
         input = torch.cat((features_res, features_glcm), dim=1)
         
@@ -101,10 +96,7 @@ def evaluate_one_epoch(model, criterion, dev_dataloader):
             class_gt = class_gt.to(device)
             
             features_res = resnet18(inputs_res).to(device)
-
-            gray_imgs = tensor_to_grayscale_list(inputs_glcm)
-            batch_result = batch_glcm(gray_imgs).to(device)
-            features_glcm = resnet18(batch_result).to(device)
+            features_glcm = resnet18(inputs_glcm).to(device)
             
             input = torch.cat((features_res, features_glcm), dim=1)
             outputs = model(input)

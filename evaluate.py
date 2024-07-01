@@ -11,21 +11,18 @@ import argparse
 import wandb
 import time
 
-from data.dataset import ImageDataset
+from dataset import ImageDataset
 from model import ResNet18, Classifer18
 from util import *
 
-def record_time_once(last):
-    now = time.time()
-    diff = now - last
-    # print(f"Time: {diff:.4f}")
-    return now
-
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def test_one_epoch(model, criterion, dataloader):
         
     model.eval()
-    resnet18 = ResNet18(freeze_layers=True)
+    resnet18 = torch.jit.load("model/resnet18_traced.pt").to(device)  
+    # resnet18 = torch.jit.load("model/resnet18_trt.ts")
+    # resnet18 = ResNet18(freeze_layers=True)
     resnet18.eval()
     
     total_loss = 0
@@ -34,26 +31,28 @@ def test_one_epoch(model, criterion, dataloader):
     with torch.no_grad():
         for inputs_res, inputs_glcm, labels, class_gt in tqdm(dataloader):
             
+            inputs_res = inputs_res.to(device)
+            inputs_glcm = inputs_glcm.to(device)
+            labels = labels.to(device)
+            class_gt = class_gt.to(device)
+            
             start = time.time()
             
-            features_res = resnet18(inputs_res)
+            features_res = resnet18(inputs_res).to(device)
             time1 = record_time_once(start)
             
-            # glcm提取计算灰度图像的纹理特征
-            gray_imgs = tensor_to_grayscale_list(inputs_glcm)
-            batch_result = batch_glcm(gray_imgs)
             # 对灰度图像的纹理特征进行特征提取
-            features_glcm = resnet18(batch_result)
+            features_glcm = resnet18(inputs_glcm).to(device)
             time2 = record_time_once(time1)
             
-            input = torch.cat((features_res, features_glcm), dim=1)
+            input = torch.cat((features_res, features_glcm), dim=1).to(device)
             # print(f"input shape: {input.shape}")
             
-            outputs = model(input)
+            outputs = model(input).to(device)
             outputs = outputs.squeeze(1)
             time3 = record_time_once(time2)
             
-            class_estimation = get_class_name(outputs)
+            class_estimation = get_class_name(outputs).to(device)
             acc = torch.sum(class_gt == class_estimation).item() / class_gt.size(0)
             total_acc += acc
             
@@ -70,7 +69,7 @@ def main():
     # 创建 DataLoader
     test_dataloader = DataLoader(ImageDataset(set_type='test'), batch_size=1, shuffle=True, num_workers=12)
     
-    model = Classifer18()
+    model = Classifer18().to(device)
     
     criterion = nn.CrossEntropyLoss()  
     

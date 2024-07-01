@@ -9,6 +9,8 @@ import torch
 from torchvision import transforms
 from torchvision.datasets import ImageFolder
 
+from util import *
+
 
 # class ImageDataset(Dataset):
 #     def __init__(self, transform=None, set_type='train', if_resize=True):
@@ -73,11 +75,11 @@ class ImageDataset(Dataset):
         """
         script_dir = os.path.dirname(os.path.abspath(__file__))
         if set_type == 'train':
-            root_dir = os.path.join(script_dir, 'train/')
+            root_dir = os.path.join(script_dir, 'data/train/')
         elif set_type == 'test':
-            root_dir = os.path.join(script_dir, 'test/')
+            root_dir = os.path.join(script_dir, 'data/test/')
         elif set_type == 'dev':
-            root_dir = os.path.join(script_dir, 'dev/')
+            root_dir = os.path.join(script_dir, 'data/dev/')
         else:   
             raise ValueError("Invalid set_type. Must be one of 'train', 'test', or 'dev'.")
             
@@ -128,7 +130,14 @@ class ImageDataset(Dataset):
         if self.if_resize:
             image_1 = self.transform_1(image)
             image_2 = self.transform_2(image)
-            return image_1, image_2, one_hot_label, class_name
+            
+            # print(image_2.shape)
+            
+            gray_img = tensor_to_grayscale(image_2)
+            
+            glcm_textures = batch_glcm(gray_img)
+            
+            return image_1, glcm_textures, one_hot_label, class_name
         else:
             image = self.transform(image)
         return image, one_hot_label, class_name
