@@ -34,7 +34,14 @@ python3 evaluate.py
 
 ### 1.4 Current Performance
 
-- 06.23
+- 06.23 Using ResNet50
 
 ![Alt text](illustrations/0623-test-result.png)
 
+- 06.30 Using ResNet18
+
+![Alt text](illustrations/0629-Res18-result.png)
+
+- 06.30 Using TensorScript for Acceleration
+
+![Alt text](illustrations/0630-Res18-TensorScript.png)

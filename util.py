@@ -271,13 +271,13 @@ def record_time_once(last):
     return now
 
 
-if __name__ == "__main__":
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    dataset = ImageDataset(train_or_test='test')
-    dataloader = DataLoader(dataset, batch_size=20, shuffle=True, num_workers=4)
-    for _, images, gt_values in tqdm(dataloader):
-        gray_imgs = tensor_to_grayscale_list(images)
-        # batch_result = batch_glcm(gray_imgs)
-        # print(batch_result.shape)  # 应该输出 (20, 3, W, H)
-        visualize_all_glcm(gray_imgs)
+# if __name__ == "__main__":
+#     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+#     dataset = ImageDataset(train_or_test='test')
+#     dataloader = DataLoader(dataset, batch_size=20, shuffle=True, num_workers=4)
+#     for _, images, gt_values in tqdm(dataloader):
+#         gray_imgs = tensor_to_grayscale_list(images)
+#         # batch_result = batch_glcm(gray_imgs)
+#         # print(batch_result.shape)  # 应该输出 (20, 3, W, H)
+#         visualize_all_glcm(gray_imgs)
             
