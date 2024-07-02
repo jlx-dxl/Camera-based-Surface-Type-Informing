@@ -1,71 +1,42 @@
-import cv2
 import os
-import ffmpeg
-import shutil
+import subprocess
 
-# This script processes multiple video files by extracting clips from each and combining them into a single video.
-# It uses OpenCV to capture video frames and ffmpeg to concatenate the video clips.
-# The final integrated video is saved as 'integrated_video.mp4'.
+# 定义视频文件路径和截取秒数列表
+video_folder = 'videos'  # 替换为你的视频文件夹路径
+output_folder = 'temp'
+os.makedirs(output_folder, exist_ok=True)
 
-# Define input folder and output file path
-input_folder = 'videos'
-output_file = 'integrated_video.mp4'
-temp_folder = 'temp_clips'
+# 定义截取秒数列表（例如：每个视频从不同秒数开始截取5秒）
+start_times = [10.0, 20.0, 20.0, 30.0, 30.0, 30.0]  # 替换为你自己的开始时间列表
+duration = 3.0  # 截取的持续时间
 
-# Create temporary folder to save video clips
-if not os.path.exists(temp_folder):
-    os.makedirs(temp_folder)
+# 获取视频文件列表
+video_files = [os.path.join(video_folder, f) for f in os.listdir(video_folder) if f.endswith('.mkv')]
 
-# List of video files
-video_files = [f'{i}.mkv' for i in range(6)]
+# 确保视频文件数量和开始时间列表长度一致
+assert len(video_files) == len(start_times), "视频文件数量和开始时间列表长度不一致"
 
-# Extract clips from each video and save
-for i, video_file in enumerate(video_files):
-    print(i)
-    cap = cv2.VideoCapture(os.path.join(input_folder, video_file))
-    
-    # Check if video is successfully opened
-    if not cap.isOpened():
-        print(f"Error: Could not open video {video_file}.")
-        continue
-    
-    # Get video frame rate
-    fps = cap.get(cv2.CAP_PROP_FPS)
-    start_time = 5  # Start time (seconds)
-    duration = 5  # Clip duration (seconds)
-    
-    start_frame = int(start_time * fps)
-    end_frame = int((start_time + duration) * fps)
-    
-    # Jump to start frame
-    cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame)
-    
-    # Read and save the clip
-    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-    out = cv2.VideoWriter(os.path.join(temp_folder, f'clip_{i}.mp4'), fourcc, fps, (int(cap.get(3)), int(cap.get(4))))
-    
-    for frame_num in range(start_frame, end_frame):
-        ret, frame = cap.read()
-        if not ret:
-            break
-        out.write(frame)
-    
-    cap.release()
-    out.release()
+# 使用 ffmpeg 截取片段并保存到 temp 文件夹
+for i, (video_file, start_time) in enumerate(zip(video_files, start_times)):
+    output_file = os.path.join(output_folder, f'clip_{i}.mkv')
+    ffmpeg_cmd = f"ffmpeg -ss {start_time} -i \"{video_file}\" -t {duration} -c copy \"{output_file}\""
+    subprocess.run(ffmpeg_cmd, shell=True)
 
-# Use ffmpeg to concatenate video clips
-input_files = [os.path.join(temp_folder, f'clip_{i}.mp4') for i in range(6)]
-concat_file = os.path.join(temp_folder, 'concat.txt')
+print("视频片段已成功截取并保存到 temp 文件夹")
 
-# Create ffmpeg input file list
-with open(concat_file, 'w') as f:
-    for file in input_files:
-        f.write(f"file '{os.path.abspath(file)}'\n")
+# 获取 temp 文件夹中的视频片段
+clip_files = [os.path.join(output_folder, f) for f in sorted(os.listdir(output_folder)) if f.endswith('.mkv')]
 
-# Concatenate using ffmpeg
-ffmpeg.input(concat_file, format='concat', safe=0).output(output_file, c='copy').run()
+# 创建一个文本文件，列出所有要拼接的视频文件
+with open("file_list.txt", "w") as file_list:
+    for clip in clip_files:
+        file_list.write(f"file '{clip}'\n")
 
-# Delete temporary folder and its contents
-shutil.rmtree(temp_folder)
+# 使用 ffmpeg 拼接视频
+output_video = 'integrated_video.mkv'
+ffmpeg_cmd = f"ffmpeg -f concat -safe 0 -i file_list.txt -c copy {output_video}"
+subprocess.run(ffmpeg_cmd, shell=True)
 
-print(f"Output video saved as {output_file}")
+# 清理临时文件
+os.remove("file_list.txt")
+print(f"视频片段已成功拼接并保存为 {output_video}")

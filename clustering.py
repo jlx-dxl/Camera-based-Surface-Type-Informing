@@ -100,9 +100,17 @@ def process_video_frame(cap, backbone, resnet18, dbstream, all_data):
     bool: True if the frame was processed successfully, False otherwise.
     """
     ret, frame = cap.read()
+    
     if not ret:
         return False
+    
+    # 显示处理后的帧
+    cv2.imshow('Video Frame', frame)
 
+    # 等待按键，按 'q' 退出
+    if cv2.waitKey(1) & 0xFF == ord('q'):
+        return False
+    
     inputs_res, inputs_glcm = img_preprocess(frame)
     feature = feature_extract(backbone, resnet18, inputs_res, inputs_glcm)
     feature_dict = numpy_to_dict(feature)
@@ -146,7 +154,7 @@ def update_plot(frame, cap, backbone, resnet18, dbstream, all_data, ax, scatter)
         labels = [dbstream.predict_one(data) for data in all_data]
 
         ax.clear()
-        scatter = ax.scatter(data_3d[:, 0], data_3d[:, 1], data_3d[:, 2], c=labels, cmap='viridis', marker='.')
+        scatter = ax.scatter(data_3d[:, 0], data_3d[:, 1], data_3d[:, 2], c=labels, cmap='viridis', marker='.', s=60)
 
         # Add legend
         legend1 = ax.legend(*scatter.legend_elements(), title="Clusters")
@@ -163,7 +171,7 @@ def main():
     """
     Main function to run the video processing and clustering visualization.
     """
-    video_path = 'data/integrated_video.mp4'
+    video_path = 'data/test_video.mp4'
 
     model = Classifer18().to(device)
     model.load_state_dict(torch.load(os.path.join('model', 'train0630-Res18-1', 'best.pth')))
@@ -173,11 +181,11 @@ def main():
     resnet18.eval()
 
     dbstream = cluster.DBSTREAM(
-        clustering_threshold=6.0,
-        fading_factor=0.01,
-        cleanup_interval=5,
-        intersection_factor=0.5,
-        minimum_weight=1
+        clustering_threshold=10.0,
+        fading_factor=0.99,
+        cleanup_interval=1e8,
+        intersection_factor=0.99,
+        minimum_weight=0.01
     )
 
     cap = cv2.VideoCapture(video_path)
