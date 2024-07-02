@@ -14,20 +14,24 @@ from dataset import ImageDataset
 from model import ResNet18, Classifer18
 from util import *
 
-# 定义设备，优先使用 GPU
+# Define the device, prioritize using GPU
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-
 def get_args():
+    """
+    Parses command-line arguments.
 
+    Returns:
+        argparse.Namespace: Parsed arguments.
+    """
     parser = argparse.ArgumentParser(description='Camera based friction coefficient estimation using deep learning')
     
     parser.add_argument('--num_workers', type=int, default=12, help="The number of workers to use for data loading")
     parser.add_argument('--dropout_p', type=float, default=0.1, help="The dropout probability to use")   
-    parser.add_argument('--batch_size', type=int, default=40, help="batch_size") 
-    parser.add_argument('--max_epoch', type=int, default=40, help="max_epoch") 
-    parser.add_argument('--lr', type=float, default=0.001, help="learning rate")
-    parser.add_argument('--lr_decay', type=float, default=0.1, help="learning rate decay rate") 
+    parser.add_argument('--batch_size', type=int, default=40, help="Batch size") 
+    parser.add_argument('--max_epoch', type=int, default=40, help="Maximum number of epochs") 
+    parser.add_argument('--lr', type=float, default=0.001, help="Learning rate")
+    parser.add_argument('--lr_decay', type=float, default=0.1, help="Learning rate decay rate") 
     parser.add_argument('--experiment_name', type=str, default='testing', help='The name of the experiment to run')
     parser.add_argument('--use_wandb', action='store_true', default=False, help="If set, use wandb to keep track of experiments")
     parser.add_argument('--continue_training', action='store_true', default=False, help='If set, continue training from the last best checkpoint')
@@ -36,23 +40,33 @@ def get_args():
     return args
 
 def train_one_epoch(args, model, optimizer, criterion, train_dataloader):
-    
+    """
+    Trains the model for one epoch.
+
+    Args:
+        args (argparse.Namespace): Parsed arguments.
+        model (nn.Module): The model to be trained.
+        optimizer (torch.optim.Optimizer): Optimizer for training.
+        criterion (nn.Module): Loss function.
+        train_dataloader (DataLoader): DataLoader for training data.
+
+    Returns:
+        tuple: Average training loss and accuracy.
+    """
     model.train()
-    # 加载预训练的 ResNet18 模型
     resnet18 = ResNet18(freeze_layers=True).to(device)
     resnet18.eval()
     
     total_loss = 0
     total_acc = 0
 
-    # 通过 DataLoader 遍历数据，每次一个 batch
     for inputs_res, inputs_glcm, labels, class_gt in tqdm(train_dataloader):
         inputs_res = inputs_res.to(device)
         inputs_glcm = inputs_glcm.to(device)
         labels = labels.to(device)
         class_gt = class_gt.to(device)
         
-        # renet提取特征
+        # Extract features using ResNet18
         features_res = resnet18(inputs_res).to(device)
         features_glcm = resnet18(inputs_glcm).to(device)
         
@@ -71,16 +85,23 @@ def train_one_epoch(args, model, optimizer, criterion, train_dataloader):
         optimizer.step()
         total_loss += loss.item() * input.size(0)
         
-        # print("loss: ", loss.item(), f"; acc: {acc * 100 :.4f}%; total_loss: ", total_loss, f"; total_acc: {total_acc * 100 :.4f}%;")
-        
         if args.use_wandb:
             wandb.log({"loss": loss, "acc": acc, "lr": optimizer.param_groups[0]['lr']})
             
     return total_loss / len(train_dataloader.dataset), total_acc / train_dataloader.__len__()
 
-
 def evaluate_one_epoch(model, criterion, dev_dataloader):
-        
+    """
+    Evaluates the model for one epoch.
+
+    Args:
+        model (nn.Module): The model to be evaluated.
+        criterion (nn.Module): Loss function.
+        dev_dataloader (DataLoader): DataLoader for validation data.
+
+    Returns:
+        tuple: Average validation loss and accuracy.
+    """
     model.eval()
     resnet18 = ResNet18(freeze_layers=True).to(device)
     resnet18.eval()
@@ -111,9 +132,10 @@ def evaluate_one_epoch(model, criterion, dev_dataloader):
         
     return total_loss / len(dev_dataloader.dataset), total_acc / dev_dataloader.__len__()
 
-
 def main():
-        
+    """
+    Main function to train and evaluate the model.
+    """
     args = get_args()
     
     if args.use_wandb:
@@ -129,12 +151,10 @@ def main():
     continue_training = args.continue_training
     
     checkpoint_dir = os.path.join(f'model/{experiment_name}/')
-    # Check if the directory exists
     if not os.path.exists(checkpoint_dir):
-        # Create the directory if it doesn't exist
         os.makedirs(checkpoint_dir)
     
-    # 创建 DataLoader
+    # Create DataLoader
     train_dataloader = DataLoader(ImageDataset(set_type='train'), batch_size=batch_size, shuffle=True, num_workers=num_workers)
     dev_dataloader = DataLoader(ImageDataset(set_type='dev'), batch_size=batch_size, shuffle=True, num_workers=num_workers)
     
@@ -148,13 +168,12 @@ def main():
     
     if continue_training:
         model.load_state_dict(torch.load('model/best.pth'))
-        print("continue training from the last best checkpoint!!!")
+        print("Continue training from the last best checkpoint!!!")
     
     best_loss = float('inf')
     best_acc = 0
     
     for epoch in range(max_epoch):
-        
         train_loss, train_acc = train_one_epoch(args, model, optimizer, criterion, train_dataloader)
         dev_loss, dev_acc = evaluate_one_epoch(model, criterion, dev_dataloader)
         
@@ -164,7 +183,7 @@ def main():
         
         scheduler.step()
         
-        # 存储检查点
+        # Save checkpoint
         if dev_loss < best_loss and dev_acc > best_acc:
             best_loss = dev_loss
             best_acc = dev_acc
@@ -179,10 +198,8 @@ def main():
         wandb.finish()
         
     model.load_state_dict(torch.load(os.path.join(checkpoint_dir,'best.pth')))
-    dev_loss = evaluate_one_epoch(model, criterion, dev_dataloader)
+    dev_loss, dev_acc = evaluate_one_epoch(model, criterion, dev_dataloader)
     print("Final Dev Loss: ", dev_loss)
-
 
 if __name__ == "__main__":
     main()
-

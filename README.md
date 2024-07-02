@@ -45,3 +45,8 @@ python3 evaluate.py
 - 06.30 Using TensorScript for Acceleration
 
 ![Alt text](illustrations/0630-Res18-TensorScript.png)
+
+
+meanshift
+
+fundation model?

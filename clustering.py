@@ -1,0 +1,199 @@
+#!/usr/bin/env python3
+
+import torch
+from river import cluster
+from PIL import Image
+from torchvision import transforms
+import cv2
+import numpy as np
+import os
+import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation
+from sklearn.decomposition import PCA
+from mpl_toolkits.mplot3d import Axes3D
+
+from model import Classifer18
+from util import *
+
+# Set the device to use GPU if available, otherwise use CPU
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+def img_preprocess(img):
+    """
+    Preprocesses the input image for feature extraction.
+
+    Parameters:
+    img (numpy.ndarray): The input image to preprocess.
+
+    Returns:
+    tuple: A tuple containing the preprocessed image tensor and GLCM textures tensor.
+    """
+    transform = transforms.Compose([
+        transforms.Resize((224, 224)),  # Optimal input size for ResNet
+        transforms.ToTensor(),
+    ])
+
+    # Convert numpy.ndarray to PIL.Image if necessary
+    if isinstance(img, np.ndarray):
+        img = Image.fromarray(img)
+
+    img = transform(img)
+
+    # Convert the image tensor to grayscale
+    gray_img = tensor_to_grayscale(img)
+
+    # Compute GLCM textures from the grayscale image
+    glcm_textures = batch_glcm(gray_img)
+
+    return img.unsqueeze(0), glcm_textures.unsqueeze(0)
+
+def feature_extract(backbone, resnet18, inputs_res, inputs_glcm):
+    """
+    Extracts features from input images using the backbone and ResNet18 models.
+
+    Parameters:
+    backbone (torch.nn.Module): The backbone model for feature extraction.
+    resnet18 (torch.nn.Module): The ResNet18 model for feature extraction.
+    inputs_res (torch.Tensor): The input image tensor.
+    inputs_glcm (torch.Tensor): The GLCM textures tensor.
+
+    Returns:
+    numpy.ndarray: The extracted features.
+    """
+    inputs_res = inputs_res.to(device)
+    inputs_glcm = inputs_glcm.to(device)
+
+    features_res = resnet18(inputs_res).to(device)
+    features_glcm = resnet18(inputs_glcm).to(device)
+
+    input = torch.cat((features_res, features_glcm), dim=1).to(device)
+
+    features = backbone(input)
+    features = features.view(features.size(0), -1).detach().cpu().numpy()
+
+    return features
+
+def numpy_to_dict(array):
+    """
+    Converts a numpy array to a dictionary.
+
+    Parameters:
+    array (numpy.ndarray): The input numpy array.
+
+    Returns:
+    dict: The converted dictionary.
+    """
+    return {i: array[0, i] for i in range(array.shape[1])}
+
+def process_video_frame(cap, backbone, resnet18, dbstream, all_data):
+    """
+    Processes a single frame from the video, extracts features, and updates the DBSTREAM clusterer.
+
+    Parameters:
+    cap (cv2.VideoCapture): The video capture object.
+    backbone (torch.nn.Module): The backbone model for feature extraction.
+    resnet18 (torch.nn.Module): The ResNet18 model for feature extraction.
+    dbstream (cluster.DBSTREAM): The DBSTREAM clusterer.
+    all_data (list): List to store all feature dictionaries.
+
+    Returns:
+    bool: True if the frame was processed successfully, False otherwise.
+    """
+    ret, frame = cap.read()
+    if not ret:
+        return False
+
+    inputs_res, inputs_glcm = img_preprocess(frame)
+    feature = feature_extract(backbone, resnet18, inputs_res, inputs_glcm)
+    feature_dict = numpy_to_dict(feature)
+
+    dbstream.learn_one(feature_dict)
+    all_data.append(feature_dict)
+
+    labels = [dbstream.predict_one(data) for data in all_data]
+    unique_labels = set(labels)
+    
+    print(f"Current cluster number: {dbstream.n_clusters}, Total unique labels: {len(unique_labels)}")
+
+    return True
+
+def update_plot(frame, cap, backbone, resnet18, dbstream, all_data, ax, scatter):
+    """
+    Updates the 3D plot with new data from the video frames.
+
+    Parameters:
+    frame (int): The current frame number (unused).
+    cap (cv2.VideoCapture): The video capture object.
+    backbone (torch.nn.Module): The backbone model for feature extraction.
+    resnet18 (torch.nn.Module): The ResNet18 model for feature extraction.
+    dbstream (cluster.DBSTREAM): The DBSTREAM clusterer.
+    all_data (list): List to store all feature dictionaries.
+    ax (Axes3D): The 3D axis object for plotting.
+    scatter (PathCollection): The scatter plot object.
+
+    Returns:
+    PathCollection: The updated scatter plot object.
+    """
+    if not process_video_frame(cap, backbone, resnet18, dbstream, all_data):
+        return scatter,
+
+    data_array = np.array([list(d.values()) for d in all_data])
+
+    # Perform PCA only if there are enough data points
+    if data_array.shape[0] >= 3:
+        pca = PCA(n_components=3)
+        data_3d = pca.fit_transform(data_array)
+        labels = [dbstream.predict_one(data) for data in all_data]
+
+        ax.clear()
+        scatter = ax.scatter(data_3d[:, 0], data_3d[:, 1], data_3d[:, 2], c=labels, cmap='viridis', marker='.')
+
+        # Add legend
+        legend1 = ax.legend(*scatter.legend_elements(), title="Clusters")
+        ax.add_artist(legend1)
+
+        ax.set_title('DBSTREAM Clustering in 3D')
+        ax.set_xlabel('PC 1')
+        ax.set_ylabel('PC 2')
+        ax.set_zlabel('PC 3')
+
+    return scatter,
+
+def main():
+    """
+    Main function to run the video processing and clustering visualization.
+    """
+    video_path = 'data/integrated_video.mp4'
+
+    model = Classifer18().to(device)
+    model.load_state_dict(torch.load(os.path.join('model', 'train0630-Res18-1', 'best.pth')))
+    backbone = torch.nn.Sequential(*(list(model.children())[:-1]))
+    resnet18 = torch.jit.load("model/resnet18_traced.pt").to(device)
+    backbone.eval()
+    resnet18.eval()
+
+    dbstream = cluster.DBSTREAM(
+        clustering_threshold=6.0,
+        fading_factor=0.01,
+        cleanup_interval=5,
+        intersection_factor=0.5,
+        minimum_weight=1
+    )
+
+    cap = cv2.VideoCapture(video_path)
+    all_data = []
+
+    fig = plt.figure(figsize=(10, 7))
+    ax = fig.add_subplot(111, projection='3d')
+    scatter = ax.scatter([0], [0], [0], c=[0], cmap='viridis', marker='.')
+
+    ani = FuncAnimation(fig, update_plot, fargs=(cap, backbone, resnet18, dbstream, all_data, ax, scatter),
+                        interval=100, blit=False, cache_frame_data=False)
+
+    plt.show()
+
+    cap.release()
+    cv2.destroyAllWindows()
+
+if __name__ == "__main__":
+    main()

@@ -171,6 +171,8 @@ wandb/
 # video
 videos/
 demo.py
+*.mp4
+*.mkv
 
 # model files
 model/
