@@ -160,10 +160,10 @@ cython_debug/
 #.idea/
 
 # imgs
-*.png
-!illstrations/
-!illustrations/0623-test-result.png
-!illustrations/ClassificationArchitecture.png
+data/dev/
+data/test/
+data/train/
+!illstrations/**/*.png
 
 # wandb
 wandb/

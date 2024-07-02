@@ -8,6 +8,7 @@ import cv2
 import numpy as np
 import os
 import matplotlib.pyplot as plt
+import time
 from matplotlib.animation import FuncAnimation
 from sklearn.decomposition import PCA
 from mpl_toolkits.mplot3d import Axes3D
@@ -85,7 +86,7 @@ def numpy_to_dict(array):
     """
     return {i: array[0, i] for i in range(array.shape[1])}
 
-def process_video_frame(cap, backbone, resnet18, dbstream, all_data):
+def process_video_frame(cap, backbone, resnet18, dbstream, all_data, visualize):
     """
     Processes a single frame from the video, extracts features, and updates the DBSTREAM clusterer.
 
@@ -95,6 +96,7 @@ def process_video_frame(cap, backbone, resnet18, dbstream, all_data):
     resnet18 (torch.nn.Module): The ResNet18 model for feature extraction.
     dbstream (cluster.DBSTREAM): The DBSTREAM clusterer.
     all_data (list): List to store all feature dictionaries.
+    visualize (bool): Whether to visualize the frame and clustering result.
 
     Returns:
     bool: True if the frame was processed successfully, False otherwise.
@@ -103,13 +105,14 @@ def process_video_frame(cap, backbone, resnet18, dbstream, all_data):
     
     if not ret:
         return False
-    
-    # 显示处理后的帧
-    cv2.imshow('Video Frame', frame)
 
-    # 等待按键，按 'q' 退出
-    if cv2.waitKey(1) & 0xFF == ord('q'):
-        return False
+    if visualize:
+        # 显示处理后的帧
+        cv2.imshow('Video Frame', frame)
+
+        # 等待按键，按 'q' 退出
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            return False
     
     inputs_res, inputs_glcm = img_preprocess(frame)
     feature = feature_extract(backbone, resnet18, inputs_res, inputs_glcm)
@@ -121,11 +124,11 @@ def process_video_frame(cap, backbone, resnet18, dbstream, all_data):
     labels = [dbstream.predict_one(data) for data in all_data]
     unique_labels = set(labels)
     
-    print(f"Current cluster number: {dbstream.n_clusters}, Total unique labels: {len(unique_labels)}")
+    # print(f"Current cluster number: {dbstream.n_clusters}, Total unique labels: {len(unique_labels)}")
 
     return True
 
-def update_plot(frame, cap, backbone, resnet18, dbstream, all_data, ax, scatter):
+def update_plot(frame, cap, backbone, resnet18, dbstream, all_data, ax, scatter, visualize):
     """
     Updates the 3D plot with new data from the video frames.
 
@@ -138,22 +141,54 @@ def update_plot(frame, cap, backbone, resnet18, dbstream, all_data, ax, scatter)
     all_data (list): List to store all feature dictionaries.
     ax (Axes3D): The 3D axis object for plotting.
     scatter (PathCollection): The scatter plot object.
+    visualize (bool): Whether to visualize the frame and clustering result.
 
     Returns:
     PathCollection: The updated scatter plot object.
     """
-    if not process_video_frame(cap, backbone, resnet18, dbstream, all_data):
+    if not process_video_frame(cap, backbone, resnet18, dbstream, all_data, visualize):
         return scatter,
 
+    if visualize:
+        data_array = np.array([list(d.values()) for d in all_data])
+
+        # Perform PCA only if there are enough data points
+        if data_array.shape[0] >= 3:
+            pca = PCA(n_components=3)
+            data_3d = pca.fit_transform(data_array)
+            labels = [dbstream.predict_one(data) for data in all_data]
+
+            ax.clear()
+            scatter = ax.scatter(data_3d[:, 0], data_3d[:, 1], data_3d[:, 2], c=labels, cmap='viridis', marker='.', s=60)
+
+            # Add legend
+            legend1 = ax.legend(*scatter.legend_elements(), title="Clusters")
+            ax.add_artist(legend1)
+
+            ax.set_title('DBSTREAM Clustering in 3D')
+            ax.set_xlabel('PC 1')
+            ax.set_ylabel('PC 2')
+            ax.set_zlabel('PC 3')
+
+    return scatter,
+
+def static_plot(all_data, dbstream):
+    """
+    Generates a static 3D plot of the clustering result after processing all video frames.
+
+    Parameters:
+    all_data (list): List of all feature dictionaries.
+    dbstream (cluster.DBSTREAM): The DBSTREAM clusterer.
+    """
     data_array = np.array([list(d.values()) for d in all_data])
 
-    # Perform PCA only if there are enough data points
     if data_array.shape[0] >= 3:
         pca = PCA(n_components=3)
         data_3d = pca.fit_transform(data_array)
         labels = [dbstream.predict_one(data) for data in all_data]
 
-        ax.clear()
+        fig = plt.figure(figsize=(10, 7))
+        ax = fig.add_subplot(111, projection='3d')
         scatter = ax.scatter(data_3d[:, 0], data_3d[:, 1], data_3d[:, 2], c=labels, cmap='viridis', marker='.', s=60)
 
         # Add legend
@@ -165,11 +200,14 @@ def update_plot(frame, cap, backbone, resnet18, dbstream, all_data, ax, scatter)
         ax.set_ylabel('PC 2')
         ax.set_zlabel('PC 3')
 
-    return scatter,
+        plt.show()
 
-def main():
+def main(visualize=True):
     """
     Main function to run the video processing and clustering visualization.
+
+    Parameters:
+    visualize (bool): Whether to visualize the frame and clustering result.
     """
     video_path = 'data/test_video.mp4'
 
@@ -190,18 +228,39 @@ def main():
 
     cap = cv2.VideoCapture(video_path)
     all_data = []
+    time_sum = 0
+    count = 0
+    
+    now = time.time()
 
-    fig = plt.figure(figsize=(10, 7))
-    ax = fig.add_subplot(111, projection='3d')
-    scatter = ax.scatter([0], [0], [0], c=[0], cmap='viridis', marker='.')
+    if visualize:
+        fig = plt.figure(figsize=(10, 7))
+        ax = fig.add_subplot(111, projection='3d')
+        scatter = ax.scatter([0], [0], [0], c=[0], cmap='viridis', marker='.')
 
-    ani = FuncAnimation(fig, update_plot, fargs=(cap, backbone, resnet18, dbstream, all_data, ax, scatter),
-                        interval=100, blit=False, cache_frame_data=False)
+        ani = FuncAnimation(fig, update_plot, fargs=(cap, backbone, resnet18, dbstream, all_data, ax, scatter, visualize),
+                            interval=100, blit=False, cache_frame_data=False)
 
-    plt.show()
+        plt.show()
+    else:
+        while True:
+            if not process_video_frame(cap, backbone, resnet18, dbstream, all_data, visualize):
+                break
+            
+            # timeing
+            time_diff = time.time() - now
+            now = time.time()
+            time_sum += time_diff
+            count += 1
+            
+        print(f"Average FPS: {count / time_sum:.2f}")
+            
+        # 在所有视频帧处理完成后生成静态图
+        static_plot(all_data, dbstream)
 
     cap.release()
-    cv2.destroyAllWindows()
+    if visualize:
+        cv2.destroyAllWindows()
 
 if __name__ == "__main__":
-    main()
+    main(visualize=False)
