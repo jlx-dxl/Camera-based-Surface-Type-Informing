@@ -160,6 +160,7 @@ cython_debug/
 #.idea/
 
 # imgs
+demo/**/*.png
 data/dev/
 data/test/
 data/train/

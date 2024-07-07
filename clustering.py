@@ -9,6 +9,7 @@ import numpy as np
 import os
 import matplotlib.pyplot as plt
 import time
+import argparse
 from matplotlib.animation import FuncAnimation
 from sklearn.decomposition import PCA
 from mpl_toolkits.mplot3d import Axes3D
@@ -86,7 +87,7 @@ def numpy_to_dict(array):
     """
     return {i: array[0, i] for i in range(array.shape[1])}
 
-def process_video_frame(cap, backbone, resnet18, dbstream, all_data, visualize):
+def process_video_frame(cap, backbone, resnet18, dbstream, all_data, vis_fr):
     """
     Processes a single frame from the video, extracts features, and updates the DBSTREAM clusterer.
 
@@ -106,7 +107,7 @@ def process_video_frame(cap, backbone, resnet18, dbstream, all_data, visualize):
     if not ret:
         return False
 
-    if visualize:
+    if vis_fr:
         # 显示处理后的帧
         cv2.imshow('Video Frame', frame)
 
@@ -128,7 +129,7 @@ def process_video_frame(cap, backbone, resnet18, dbstream, all_data, visualize):
 
     return True
 
-def update_plot(frame, cap, backbone, resnet18, dbstream, all_data, ax, scatter, visualize):
+def update_plot(frame, cap, backbone, resnet18, dbstream, all_data, ax, scatter, vis_fr, vis_res, store):
     """
     Updates the 3D plot with new data from the video frames.
 
@@ -146,10 +147,10 @@ def update_plot(frame, cap, backbone, resnet18, dbstream, all_data, ax, scatter,
     Returns:
     PathCollection: The updated scatter plot object.
     """
-    if not process_video_frame(cap, backbone, resnet18, dbstream, all_data, visualize):
+    if not process_video_frame(cap, backbone, resnet18, dbstream, all_data, vis_fr):
         return scatter,
 
-    if visualize:
+    if vis_res:
         data_array = np.array([list(d.values()) for d in all_data])
 
         # Perform PCA only if there are enough data points
@@ -169,6 +170,13 @@ def update_plot(frame, cap, backbone, resnet18, dbstream, all_data, ax, scatter,
             ax.set_xlabel('PC 1')
             ax.set_ylabel('PC 2')
             ax.set_zlabel('PC 3')
+            
+            # Save the current frame as an image
+            if store:
+                save_path = 'demo/frames'
+                if not os.path.exists(save_path):
+                    os.makedirs(save_path)
+                plt.savefig(f"{save_path}/frame_{frame:04d}.png")
 
     return scatter,
 
@@ -202,7 +210,7 @@ def static_plot(all_data, dbstream):
 
         plt.show()
 
-def main(visualize=True):
+def main(vis_fr=False, vis_res=False, store=False):
     """
     Main function to run the video processing and clustering visualization.
 
@@ -233,18 +241,18 @@ def main(visualize=True):
     
     now = time.time()
 
-    if visualize:
+    if vis_res:
         fig = plt.figure(figsize=(10, 7))
         ax = fig.add_subplot(111, projection='3d')
         scatter = ax.scatter([0], [0], [0], c=[0], cmap='viridis', marker='.')
 
-        ani = FuncAnimation(fig, update_plot, fargs=(cap, backbone, resnet18, dbstream, all_data, ax, scatter, visualize),
+        ani = FuncAnimation(fig, update_plot, fargs=(cap, backbone, resnet18, dbstream, all_data, ax, scatter, vis_fr, vis_res, store),
                             interval=100, blit=False, cache_frame_data=False)
 
         plt.show()
     else:
         while True:
-            if not process_video_frame(cap, backbone, resnet18, dbstream, all_data, visualize):
+            if not process_video_frame(cap, backbone, resnet18, dbstream, all_data, vis_fr):
                 break
             
             # timeing
@@ -259,8 +267,21 @@ def main(visualize=True):
         static_plot(all_data, dbstream)
 
     cap.release()
-    if visualize:
+    if vis_fr:
         cv2.destroyAllWindows()
+        
+def get_args():
+    parser = argparse.ArgumentParser(description='Dynamic Clustering from Video Stream using Deep Learning Features')
+    
+    parser.add_argument('--vis_fr', action='store_true', default=False, help="If set, visualize the original frame every frame")
+    parser.add_argument('--vis_res', action='store_true', default=False, help="If set, visualize the clustering result every frame")
+    parser.add_argument('--store', action='store_true', default=False, help="If set, store the clustering result every frame")
+    
+    args = parser.parse_args()
+    return args
 
 if __name__ == "__main__":
-    main(visualize=False)
+    
+    args = get_args()
+    
+    main(vis_fr=args.vis_fr, vis_res=args.vis_res, store=args.store)
