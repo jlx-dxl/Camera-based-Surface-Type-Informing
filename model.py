@@ -79,30 +79,30 @@ class ResNet18(nn.Module):
         features = self.resnet(x)
         return features
     
-class ChannelAdjuster(nn.Module):
-    def __init__(self, input_channels):
-        """
-        Initializes the ChannelAdjuster module.
+# class ChannelAdjuster(nn.Module):
+#     def __init__(self, input_channels):
+#         """
+#         Initializes the ChannelAdjuster module.
 
-        Args:
-            input_channels (int): Number of input channels.
-        """
-        super(ChannelAdjuster, self).__init__()
-        # Define a convolution layer to adjust the number of input channels to 3
-        self.conv = nn.Conv2d(in_channels=input_channels, out_channels=3, kernel_size=1, stride=1, padding=0)
+#         Args:
+#             input_channels (int): Number of input channels.
+#         """
+#         super(ChannelAdjuster, self).__init__()
+#         # Define a convolution layer to adjust the number of input channels to 3
+#         self.conv = nn.Conv2d(in_channels=input_channels, out_channels=3, kernel_size=1, stride=1, padding=0)
     
-    def forward(self, x):
-        """
-        Forward pass to adjust the number of input channels.
+#     def forward(self, x):
+#         """
+#         Forward pass to adjust the number of input channels.
 
-        Args:
-            x (torch.Tensor): Input tensor with shape (B, C, W, H).
+#         Args:
+#             x (torch.Tensor): Input tensor with shape (B, C, W, H).
 
-        Returns:
-            torch.Tensor: Tensor with adjusted channels.
-        """
-        x = self.conv(x)
-        return x
+#         Returns:
+#             torch.Tensor: Tensor with adjusted channels.
+#         """
+#         x = self.conv(x)
+#         return x
 
 class Classifer50(nn.Module):
     def __init__(self, dropout_p=0.1, N=6):

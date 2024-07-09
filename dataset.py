@@ -144,6 +144,7 @@ if __name__ == "__main__":
     # Create an instance of the ImageDataset class
     dataset = ImageDataset(set_type='test')
     
+    
     # Create DataLoader
     dataloader = DataLoader(dataset, batch_size=20, shuffle=True, num_workers=12)
 

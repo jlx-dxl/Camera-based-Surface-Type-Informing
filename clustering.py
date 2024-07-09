@@ -221,6 +221,7 @@ def main(vis_fr=False, vis_res=False, store=False):
 
     model = Classifer18().to(device)
     model.load_state_dict(torch.load(os.path.join('model', 'train0630-Res18-1', 'best.pth')))
+    
     backbone = torch.nn.Sequential(*(list(model.children())[:-1]))
     resnet18 = torch.jit.load("model/resnet18_traced.pt").to(device)
     backbone.eval()
