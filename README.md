@@ -48,6 +48,6 @@ python3 evaluate.py
 
 - 07.02 Stream Clustering using DBStream
 
-<img src="demo/output_video-ezgif.com-video-to-gif-converter.gif" alt="Project Image" style="width:50%;">
+<img src="demo/output_video-ezgif.com-video-to-gif-converter.gif" alt="Project Image" style="width:100%;">
 
-<img src="illustrations/0702-Clustering-Result.png" alt="Project Image" style="width:50%;">
+<img src="illustrations/0702-Clustering-Result.png" alt="Project Image" style="width:75%;">
