@@ -46,10 +46,8 @@ python3 evaluate.py
 
 ![Alt text](illustrations/0630-Res18-TensorScript.png)
 
-fundation model?
-
 - 07.02 Stream Clustering using DBStream
 
-![Alt text](demo/output_video-ezgif.com-video-to-gif-converter.gif)
+<img src="demo/output_video-ezgif.com-video-to-gif-converter.gif" alt="Project Image" style="width:50%;">
 
-<img src="illustrations/0702-Clustering-Result.png" alt="Project Image" width="962" height="480">
+<img src="illustrations/0702-Clustering-Result.png" alt="Project Image" style="width:50%;">
