@@ -50,6 +50,6 @@ fundation model?
 
 - 07.02 Stream Clustering using DBStream
 
-！[Alt text](demo/output_video-ezgif.com-video-to-gif-converter.gif)
+![Alt text](demo/output_video-ezgif.com-video-to-gif-converter.gif)
 
 ![Alt text](illustrations/0702-Clustering-Result.png)
