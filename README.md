@@ -52,4 +52,4 @@ fundation model?
 
 ![Alt text](demo/output_video-ezgif.com-video-to-gif-converter.gif)
 
-![Alt text](illustrations/0702-Clustering-Result.png)
+<img src="illustrations/0702-Clustering-Result.png" alt="Project Image" width="400" height="300">
