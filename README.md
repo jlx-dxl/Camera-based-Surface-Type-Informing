@@ -7,16 +7,14 @@ This part gives a classification result of the surface by analyzing the texture 
 
 ### 1.1 NetWork Architecture
 
-![ClassificationArchitecture](illustrations/ClassificationArchitecture.png)
+![image.png](https://s2.loli.net/2024/09/11/PimVrvEUYaCj28Z.png)
 
 ### 1.2 Files
 
--  `/data`: ground truth videos, classified images(training, dev and test data);
+-  `/data`: ground truth videos, classified images(training and test data);
 -  `/data/dataset.py`: Pytorch Dataset Class, used for Dataloader;
--  `/data/data_preprocess.py`: Convert videos to imgs and split into train, dev and test sets;
 -  `/model`: trained models and checkpoints;
--  `train.py`: main training script;
--  `evaluate.py`: run model on test set to evaluate it;
+-  `train-GLCM.py`: main training script;
 -  `model.py`: definition of the NN and the layers;
 -  `util.py`: helper functions, like the implementation of glcm.
 
@@ -25,7 +23,7 @@ This part gives a classification result of the surface by analyzing the texture 
 To train the model, run (set up the WANDB_API_KEY in util.py if using wandb):
 
 ```
-python3 train.py --use_wandb --experiment_name="your-experiment-name" --batch_size=40 --lr=0.001 --lr_decay=0.1 --max_epoch=40 --num_workers=12 --drop_out=0.1
+python .\train-GLCM.py --num_workers 12 --batch_size 128 --max_epoch 100 --lr 0.001 --lr_decay 0.5 --patience 5 --experiment_name "your-experiment-name" --use_wandb
 ```
 
 ### 1.4 Dataset Information
