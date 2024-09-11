@@ -14,8 +14,8 @@ from matplotlib.animation import FuncAnimation
 from sklearn.decomposition import PCA
 from mpl_toolkits.mplot3d import Axes3D
 
-from model import Classifer18
-from util import *
+from FrictionEstimation.model import Classifer18
+from FrictionEstimation.util import *
 
 # Set the device to use GPU if available, otherwise use CPU
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
