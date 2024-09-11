@@ -1,156 +1,84 @@
-#!/usr/bin/env python3
-
-import torch
-from torch.utils.data import Dataset, DataLoader
-from PIL import Image
-import pandas as pd
 import os
 import torch
+from torch.utils.data import Dataset
 from torchvision import transforms
 from torchvision.datasets import ImageFolder
+from skimage.feature import graycomatrix, graycoprops
+import numpy as np
+from PIL import Image
 
-from util import *
+os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
 
-class ImageDataset(Dataset):
-    def __init__(self, transform=None, set_type='train', if_resize=True):
+class VisionInformDataset(Dataset):
+    def __init__(self, transform=None, set_type='train', if_GLCM=False):
         """
         Args:
             transform (callable, optional): Optional transform to be applied on a sample.
             set_type (string): Type of the dataset, should be 'train', 'test', or 'dev'.
-            if_resize (bool): Whether to resize images to 224x224.
+            if_GLCM (bool): if add GLCM features as extra channels.
         """
         script_dir = os.path.dirname(os.path.abspath(__file__))
         if set_type == 'train':
             root_dir = os.path.join(script_dir, 'data/train/')
         elif set_type == 'test':
             root_dir = os.path.join(script_dir, 'data/test/')
-        elif set_type == 'dev':
-            root_dir = os.path.join(script_dir, 'data/dev/')
-        else:   
+        else:
             raise ValueError("Invalid set_type. Must be one of 'train', 'test', or 'dev'.")
-            
+
         self.root_dir = root_dir
         self.transform = transform
         self.dataset = ImageFolder(root_dir)
-        
-        self.if_resize = if_resize  
+        self.if_GLCM = if_GLCM
 
         # If no specific transform is provided, use default transform (i.e., convert to tensor)
         if transform is None:
-            if if_resize:
-                self.transform_1 = transforms.Compose([
-                    transforms.Resize((224, 224)),  # Optimal input size for ResNet
-                    transforms.ToTensor(),
-                ])
-                self.transform_2 = transforms.Compose([
-                    transforms.Resize((224, 224)),  # Optimal input size for ResNet
-                    transforms.ToTensor(),
-                ])
-            else:
-                self.transform = transforms.Compose([
-                    transforms.ToTensor(),
-                ])
+            self.transform = transforms.Compose([
+                transforms.Resize((224, 224)),  # Optimal input size for ResNet
+                transforms.ToTensor(),
+            ])
         else:
             self.transform = transform
-        
+
         # Get the number of classes
         self.num_classes = len(self.dataset.classes)
         self.class_to_idx = self.dataset.class_to_idx
         self.idx_to_class = {v: k for k, v in self.class_to_idx.items()}
 
-    def get_class_name(self, one_hot_label):
-        """
-        Returns the class name given a one-hot encoded label.
-        
-        Args:
-            one_hot_label (torch.Tensor): One-hot encoded label tensor.
-        
-        Returns:
-            int: Index of the class.
-        """
-        label_idx = torch.argmax(one_hot_label).item()
-        return label_idx
-    
     def __len__(self):
         return len(self.dataset)
-    
+
+    def compute_glcm_features(self, gray_image):
+        """
+        计算灰度图像的GLCM特征 (对比度、同质性、能量)，并返回3个通道的特征图。
+        """
+        glcm = graycomatrix(gray_image, distances=[1], angles=[0], levels=256, symmetric=True, normed=True)
+
+        contrast = graycoprops(glcm, 'contrast').flatten()  # 对比度
+        homogeneity = graycoprops(glcm, 'homogeneity').flatten()  # 同质性
+        energy = graycoprops(glcm, 'energy').flatten()  # 能量
+
+        # 将特征重塑为图像形状
+        glcm_features = np.stack([contrast, homogeneity, energy], axis=0)
+        return torch.from_numpy(glcm_features).float()
+
     def __getitem__(self, idx):
-        """
-        Returns the sample corresponding to the index.
-        
-        Args:
-            idx (int): Index of the sample.
-        
-        Returns:
-            tuple: (image, GLCM textures, one-hot label, class name) if resizing, else (image, one-hot label, class name).
-        """
-        image, label = self.dataset[idx]
-        
-        # Convert label to one-hot encoding
+        # 获取图像和类别标签
+        img, class_idx = self.dataset[idx]
+
+        # 将图像应用转换
+        img = self.transform(img)
+
+        # 将类别标签转换为 one-hot 编码
         one_hot_label = torch.zeros(self.num_classes)
-        one_hot_label[label] = 1
-        class_name = self.get_class_name(one_hot_label)
-        
-        if self.if_resize:
-            image_1 = self.transform_1(image)
-            image_2 = self.transform_2(image)
-            
-            # print(image_2.shape)
-            
-            gray_img = tensor_to_grayscale(image_2)
-            
-            glcm_textures = batch_glcm(gray_img)
-            
-            return image_1, glcm_textures, one_hot_label, class_name
+        one_hot_label[class_idx] = 1.0
+
+        if self.if_GLCM:
+            # 转换为灰度图像，并计算 GLCM 特征
+            img_gray = img.mean(dim=0).numpy().astype(np.uint8)  # 将图像转换为灰度图像 (简化处理)
+            glcm_features = self.compute_glcm_features(img_gray)
+
+            # 返回图像、GLCM特征、one-hot标签、class_idx
+            return img, glcm_features, one_hot_label, class_idx
         else:
-            image = self.transform(image)
-        return image, one_hot_label, class_name
-    
-    
-if __name__ == "__main__":
-
-    print("\ntrain:\n")
-
-    # Create an instance of the ImageDataset class
-    dataset = ImageDataset(set_type='train')
-    
-    # Create DataLoader
-    dataloader = DataLoader(dataset, batch_size=20, shuffle=True, num_workers=12)
-
-    # Use DataLoader
-    for i, (images_1, images_2, gt_values, class_names) in enumerate(dataloader):
-        # Perform your model training operations here
-        print(f"{i:04d}:", images_1.shape, images_2.shape, gt_values.shape)
-        if i == 0:
-            print(gt_values, class_names)
-        
-    print("\ndev:\n")
-    
-    # Create an instance of the ImageDataset class
-    dataset = ImageDataset(set_type='dev')
-    
-    # Create DataLoader
-    dataloader = DataLoader(dataset, batch_size=20, shuffle=True, num_workers=12)
-
-    # Use DataLoader
-    for i, (images_1, images_2, gt_values, class_names) in enumerate(dataloader):
-        # Perform your model training operations here
-        print(f"{i:04d}:", images_1.shape, images_2.shape, gt_values.shape)
-        if i == 0:
-            print(gt_values, class_names)
-        
-    print("\ntest:\n")
-    
-    # Create an instance of the ImageDataset class
-    dataset = ImageDataset(set_type='test')
-    
-    
-    # Create DataLoader
-    dataloader = DataLoader(dataset, batch_size=20, shuffle=True, num_workers=12)
-
-    # Use DataLoader
-    for i, (images_1, images_2, gt_values, class_names) in enumerate(dataloader):
-        # Perform your model training operations here
-        print(f"{i:04d}:", images_1.shape, images_2.shape, gt_values.shape)
-        if i == 0:
-            print(gt_values, class_names)
+            # 只返回图像、one-hot标签、class_idx
+            return img, one_hot_label, class_idx

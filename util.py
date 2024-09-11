@@ -21,8 +21,8 @@ def setup_wandb(args, name):
         args (Namespace): Command line arguments.
         name (str): Name of the experiment.
     """
-    os.environ["WANDB_API_KEY"] = '28cbf19c5cd0619337ae4fb844d56992a283b007'
-    wandb.init(project='Camera-based Friction Coefficient Estimation', config=args, name=name) 
+    # os.environ["WANDB_API_KEY"] = '28cbf19c5cd0619337ae4fb844d56992a283b007'
+    wandb.init(project=args.wandb_project, config=args, name=name)
     
 def get_class_name(one_hot_labels):
     """

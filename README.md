@@ -27,27 +27,22 @@ To train the model, run (set up the WANDB_API_KEY in util.py if using wandb):
 ```
 python3 train.py --use_wandb --experiment_name="your-experiment-name" --batch_size=40 --lr=0.001 --lr_decay=0.1 --max_epoch=40 --num_workers=12 --drop_out=0.1
 ```
-To evaluate on test, run:
-```
-python3 evaluate.py
-```
 
-### 1.4 Current Performance
+### 1.4 Dataset Information
 
-- 06.23 Using ResNet50
-
-![Alt text](illustrations/0623-test-result.png)
-
-- 06.30 Using ResNet18
-
-![Alt text](illustrations/0629-Res18-result.png)
-
-- 06.30 Using TensorScript for Acceleration
-
-![Alt text](illustrations/0630-Res18-TensorScript.png)
-
-- 07.02 Stream Clustering using DBStream
-
-<img src="demo/output_video-ezgif.com-video-to-gif-converter.gif" alt="Project Image" style="width:150%;">
-
-<img src="illustrations/0702-Clustering-Result.png" alt="Project Image" style="width:75%;">
+| Label | Surface          | Sample |
+|-------|------------------| --- |
+| 0     | 6edge_gray_brick |![image_0189.png](https://s2.loli.net/2024/09/11/FV4T5yRkrd9UPcZ.png) |
+| 1     | cement_pavement  |![image_0751.png](https://s2.loli.net/2024/09/11/Nz4ZrKGtdcYHiQ9.png)|
+| 2     | grass            |![image_0012.png](https://s2.loli.net/2024/09/11/qarpRl6JXACOd79.png)|
+| 3     | levin_between    |![levin_between_frame_0485.jpg](https://s2.loli.net/2024/09/11/rEXvRkj71itJAb2.jpg)|
+| 4     | levin_carpet     |![levin_carpet_frame_0189.jpg](https://s2.loli.net/2024/09/11/DXiujq5pCePb1QZ.jpg)|
+| 5     | levin_desk       |![levin_desk_frame_0150.jpg](https://s2.loli.net/2024/09/11/Zt81RkHVXC4DxS6.jpg)|
+| 6     | levin_hall       |![image_0064.png](https://s2.loli.net/2024/09/11/4oaHSvh7zgdFlmO.png)|
+| 7     | levin_tape       |![levin_tape_frame_0076.jpg](https://s2.loli.net/2024/09/11/y17KBdeCYsxT3n8.jpg)|
+| 8     | levin_bricks     |![bricks_frame_0199.jpg](https://s2.loli.net/2024/09/11/PGeJhZ8jmOSLvbf.jpg)|
+| 9     |moore_elevator|![elevator_frame_0180.jpg](https://s2.loli.net/2024/09/11/Gotk3OgCAqKQSNY.jpg)
+| 10 | moore_Klab | ![moore_frame_0387.jpg](https://s2.loli.net/2024/09/11/lHF2fO6e3hkoXvZ.jpg) |
+| 11 | race_track_brick | ![race_track3_frame_1297.jpg](https://s2.loli.net/2024/09/11/MXytdwfYOqIGePK.jpg) |
+| 12 | red_brick | ![image_0666.png](https://s2.loli.net/2024/09/11/p6K9wUeJbDVhoHP.png) |
+| 13 | wood_bridge | ![image_1261.png](https://s2.loli.net/2024/09/11/n89KHCc3GaUpSv5.png) |
