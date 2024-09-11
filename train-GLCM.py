@@ -5,7 +5,7 @@ import torch.nn as nn
 import torchvision.models as models
 from torch.utils.data import DataLoader
 import torch.optim as optim
-from torch.optim.lr_scheduler import ExponentialLR
+from torch.optim.lr_scheduler import StepLR
 from tqdm import tqdm
 import argparse
 import wandb
@@ -66,9 +66,11 @@ def train_one_epoch(args, model, optimizer, criterion, train_dataloader):
         labels = labels.to(device)
         class_gt = class_gt.to(device)
 
+        # print("inputs: ", inputs.size(), "GLCMs: ", GLCMs.size(), "labels: ", labels.size(), "class_gt: ", class_gt.size())
+
         optimizer.zero_grad()
         outputs = model(inputs, GLCMs)
-        print("outputs: ", outputs.size())
+        # print("outputs: ", outputs.size())
         outputs = outputs.squeeze(1)
         
         class_estimation = get_class_name(outputs).to(device)
@@ -78,21 +80,21 @@ def train_one_epoch(args, model, optimizer, criterion, train_dataloader):
         loss = criterion(outputs, labels)
         loss.backward()
         optimizer.step()
-        total_loss += loss.item() * input.size(0)
+        total_loss += loss.item() * inputs.size(0)
         
         if args.use_wandb:
             wandb.log({"loss": loss, "acc": acc, "lr": optimizer.param_groups[0]['lr']})
             
     return total_loss / len(train_dataloader.dataset), total_acc / train_dataloader.__len__()
 
-def evaluate_one_epoch(model, criterion, dev_dataloader):
+def evaluate_one_epoch(model, criterion, test_dataloader):
     """
     Evaluates the model for one epoch.
 
     Args:
         model (nn.Module): The model to be evaluated.
         criterion (nn.Module): Loss function.
-        dev_dataloader (DataLoader): DataLoader for validation data.
+        test_dataloader (DataLoader): DataLoader for validation data.
 
     Returns:
         tuple: Average validation loss and accuracy.
@@ -102,12 +104,14 @@ def evaluate_one_epoch(model, criterion, dev_dataloader):
     total_acc = 0
 
     with torch.no_grad():
-        for inputs, labels, class_gt in tqdm(dev_dataloader):
+        for inputs, GLCMs, labels, class_gt in tqdm(test_dataloader):
             inputs = inputs.to(device)
+            GLCMs = GLCMs.to(device)
             labels = labels.to(device)
             class_gt = class_gt.to(device)
 
-            outputs = model(inputs)
+            outputs = model(inputs, GLCMs)
+            # print("outputs: ", outputs.size())
             outputs = outputs.squeeze(1)
             
             class_estimation = get_class_name(outputs).to(device)
@@ -115,9 +119,9 @@ def evaluate_one_epoch(model, criterion, dev_dataloader):
             total_acc += acc
         
             loss = criterion(outputs, labels)
-            total_loss += loss.item() * input.size(0)
+            total_loss += loss.item() * inputs.size(0)
         
-    return total_loss / len(dev_dataloader.dataset), total_acc / dev_dataloader.__len__()
+    return total_loss / len(test_dataloader.dataset), total_acc / test_dataloader.__len__()
 
 def main():
     """
@@ -144,15 +148,16 @@ def main():
         os.makedirs(checkpoint_dir)
     
     # Create DataLoader
-    train_dataloader = DataLoader(VisionInformDataset(set_type='train', if_GLCM=False), batch_size=batch_size, shuffle=True, num_workers=num_workers)
-    test_dataloader = DataLoader(VisionInformDataset(set_type='test', if_GLCM=False), batch_size=batch_size, shuffle=True, num_workers=num_workers)
+    train_dataloader = DataLoader(VisionInformDataset(set_type='train', if_GLCM=True), batch_size=batch_size, shuffle=True, num_workers=num_workers)
+    test_dataloader = DataLoader(VisionInformDataset(set_type='test', if_GLCM=True), batch_size=batch_size, shuffle=True, num_workers=num_workers)
     
     model = VisionInform50(dropout_p=dropout_p, N=N).to(device)
     
     print(f"Model is training on {next(model.parameters()).device} !!!")
     
     optimizer = optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-5)
-    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=lr_decay, patience=20)
+    # scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=lr_decay, patience=patience)
+    scheduler = StepLR(optimizer, gamma=lr_decay, step_size=patience)
     criterion = nn.CrossEntropyLoss()
     
     if continue_training:
@@ -173,7 +178,7 @@ def main():
         scheduler.step()
         
         # Save checkpoint
-        if test_acc < best_loss and test_acc > best_acc:
+        if test_loss < best_loss and test_acc > best_acc:
             best_loss = test_loss
             best_acc = test_acc
             torch.save(model.state_dict(), os.path.join(checkpoint_dir,'best.pth'))
@@ -181,7 +186,7 @@ def main():
             print(f'Checkpoint saved at Epoch {epoch+1}')
         
         if args.use_wandb:
-            wandb.log({"train_loss": train_loss, "dev_loss": test_loss, "train_acc": train_acc, "dev_acc": test_acc, "lr": optimizer.param_groups[0]['lr'], "epoch": epoch+1})
+            wandb.log({"train_loss": train_loss, "test_loss": test_loss, "train_acc": train_acc, "test_acc": test_acc, "lr": optimizer.param_groups[0]['lr'], "epoch": epoch+1})
             
     if args.use_wandb:
         wandb.finish()
