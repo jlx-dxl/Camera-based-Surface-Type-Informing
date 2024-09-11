@@ -7,7 +7,7 @@ This part gives a classification result of the surface by analyzing the texture 
 
 ### 1.1 NetWork Architecture
 
-![image.png](https://s2.loli.net/2024/09/11/PimVrvEUYaCj28Z.png)
+![image.png](https://s2.loli.net/2024/09/11/yjX2YbiTNFU3Cmk.png)
 
 ### 1.2 Files
 
